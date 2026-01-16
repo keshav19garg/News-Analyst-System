@@ -69,6 +69,6 @@ The system is domain-agnostic and works across news topics such as politics, tec
 
 * Focused on real-world information retrieval
 
-## How to use this RAG based AI Teaching Assistant for your own course
+## How to use this News Analysis Tool for your own course
 
 Run the application using streamlit run app.py. Once the Streamlit app loads, enter the news source URLs and your question. The system will analyze the articles and display the generated answer along with its source.
