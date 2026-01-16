@@ -34,81 +34,84 @@ def get_answer(resources,query):
     rows = []
 
     # ---- CLEAN TEXT ----
-    for d in data:
-        txt = d.page_content.split("\n")
-        full_text = " ".join(t.strip() for t in txt)
-        cleaned_text = re.sub(r' {2,}', ' ', full_text)
+    try:
+        for d in data:
+            txt = d.page_content.split("\n")
+            full_text = " ".join(t.strip() for t in txt)
+            cleaned_text = re.sub(r' {2,}', ' ', full_text)
 
-        documents.append({
-            "source": d.metadata["source"],
-            "full_text": cleaned_text
-        })
-
-    # ---- SPLITTER (once) ----
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=200,
-        chunk_overlap=13,
-    )
-
-    for doc in documents:
-        chunks = splitter.split_text(doc["full_text"])
-        for c in chunks:
-            rows.append({
-                "source": doc["source"],
-                "text": c
+            documents.append({
+                "source": d.metadata["source"],
+                "full_text": cleaned_text
             })
 
-    df = pd.DataFrame(rows)
+        # ---- SPLITTER (once) ----
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=200,
+            chunk_overlap=13,
+        )
 
-    # ---- EMBEDDINGS ----
-    embedding_model = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
-    )
+        for doc in documents:
+            chunks = splitter.split_text(doc["full_text"])
+            for c in chunks:
+                rows.append({
+                    "source": doc["source"],
+                    "text": c
+                })
 
-    embeddings = embedding_model.embed_documents(df["text"].tolist())
-    embeddings=np.array(embeddings).astype("float32")
+        df = pd.DataFrame(rows)
 
-    print(len(embeddings), len(embeddings[0]))
+        # ---- EMBEDDINGS ----
+        embedding_model = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
+        )
 
-    #---- VECTOR ----
+        embeddings = embedding_model.embed_documents(df["text"].tolist())
+        embeddings=np.array(embeddings).astype("float32")
 
-    dim=len(embeddings[0])
+        print(len(embeddings), len(embeddings[0]))
 
-    index=faiss.IndexFlatL2(dim)
-    index.add(embeddings)
+        #---- VECTOR ----
 
-    query_vector=embedding_model.embed_query(query)
+        dim=len(embeddings[0])
 
-    query_vector = np.array([query_vector]).astype("float32")
+        index=faiss.IndexFlatL2(dim)
+        index.add(embeddings)
 
-    distances, indices = index.search(query_vector, k=5)
+        query_vector=embedding_model.embed_query(query)
 
-    print("Nearest indices:", indices)
-    print("Distances:", distances)
+        query_vector = np.array([query_vector]).astype("float32")
 
-    new_indices=indices.flatten()
+        distances, indices = index.search(query_vector, k=5)
 
-    #---- Prompt ----
+        print("Nearest indices:", indices)
+        print("Distances:", distances)
 
-    new_df=df.iloc[new_indices]
-    print(new_df)
-    prompt_material=new_df.to_json()
+        new_indices=indices.flatten()
 
+        #---- Prompt ----
 
-    prompt = ChatPromptTemplate.from_template("You are given extracted information from multiple articles in {prompt_material} and a user question {query}. Generate an accurate ,detailed,re;evant and complete answer to the user’s question using only the provided information. Return the response strictly in JSON format with exactly two fields: answer_text and source. Use only those sourceswhere answer is mentionsed. If the provided articles do not contain relevant information to answer the question, return answer_text as The given articles do not mention the answer to this query. and source as null. Do not include any text outside the JSON response."
-)
-
-    llm = ChatOpenAI(model="gpt-5.2", temperature=0.7)
+        new_df=df.iloc[new_indices]
+        print(new_df)
+        prompt_material=new_df.to_json()
 
 
-    chain = prompt | llm | JsonOutputParser()
+        prompt = ChatPromptTemplate.from_template("You are given extracted information from multiple articles in {prompt_material} and a user question {query}. Generate an accurate ,detailed,re;evant and complete answer to the user’s question using only the provided information. Return the response strictly in JSON format with exactly two fields: answer_text and source. Use only those sourceswhere answer is mentionsed. If the provided articles do not contain relevant information to answer the question, return answer_text as The given articles do not mention the answer to this query. and source as null. Do not include any text outside the JSON response."
+        )
 
-    final_output=chain.invoke({"prompt_material":prompt_material,"query":query})
+        llm = ChatOpenAI(model="gpt-5.2", temperature=0.7)
 
-    print(final_output)
-    print(type(final_output))
-    return final_output
 
+        chain = prompt | llm | JsonOutputParser()
+
+        final_output=chain.invoke({"prompt_material":prompt_material,"query":query})
+
+        print(final_output)
+        print(type(final_output))
+        return final_output
+    
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 # RetrievalQA and Chain for prompt and LLM
 

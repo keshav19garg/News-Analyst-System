@@ -1,30 +1,34 @@
 import streamlit as st
-# Assuming your logic is inside get_answer in urlloading.py
-from urlloading import get_answer 
+from urlloading import get_answer
 
-st.title("News Research Tool 2026")
+st.title("News Analysis Tool")
 
-# 1. Capture Sources and Question in ONE form for stability
+# ---- INPUT SECTION ----
 with st.form("main_form"):
-    st.subheader("1. Provide Sources")
-    s1 = st.text_input("Source 1", key="s1")
-    s2 = st.text_input("Source 2", key="s2")
-    s3 = st.text_input("Source 3", key="s3")
-    
-    st.divider()
-    
-    st.subheader("2. Ask your Question")
-    query = st.text_input("Question", key="q1", placeholder="What would you like to know?")
-    
-    # Single Submit Button
+    left_col, right_col = st.columns([1, 1])
+
+    # LEFT: News Sources
+    with left_col:
+        st.subheader("📰 News Sources")
+        s1 = st.text_input("Source 1")
+        s2 = st.text_input("Source 2")
+        s3 = st.text_input("Source 3")
+
+    # RIGHT: Question
+    with right_col:
+        st.subheader("❓ Your Question")
+        query = st.text_area(
+            "Ask your question",
+            placeholder="What would you like to know from these articles?",
+            height=150
+        )
+
     submitted = st.form_submit_button("Generate Answer")
 
-# 2. Process Logic
+# ---- PROCESSING SECTION ----
 if submitted:
-    # Filter valid sources
-    raw_inputs = [s1, s2, s3]
-    valid_sources = [res.strip() for res in raw_inputs if res.strip()]
-    
+    valid_sources = [s.strip() for s in [s1, s2, s3] if s.strip()]
+
     if not valid_sources:
         st.error("Please provide at least one source URL.")
     elif not query.strip():
@@ -32,43 +36,19 @@ if submitted:
     else:
         with st.spinner("Analyzing articles..."):
             try:
-                # Call your backend function
                 answer = get_answer(valid_sources, query)
-                
-                # MOCK DATA for demonstration (Replace with actual function call)
-                st.subheader("Answer")
-                st.text_area(
-                        label="LLM Response",
-                        value=answer["answer_text"],
-                        height=300,
-                        key="ans_display"
-                    )
-                
-                st.subheader("Source")
-                st.text_area(
-                        label="LLM Response",
-                        value=answer["source"],
-                        height=300,
-                        key="ans_displays"
-                    )
-                # # 3. Display Results in Text Areas
-                # st.subheader("Results")
-                # col1, col2 = st.columns(2)
-                
-                # with col1:
-                #     st.text_area(
-                #         label="LLM Response",
-                #         value=answer,
-                #         height=300,
-                #         key="ans_display"
-                #     )
 
-                # with col2:
-                #     st.text_area(
-                #         label="Source Material Used",
-                #         value=answer["source"],
-                #         height=300,
-                #         key="src_display"
-                #     )
+                st.divider()
+
+                # ---- OUTPUT SECTION ----
+                st.subheader("✅ Answer")
+                st.markdown(answer["answer_text"])
+
+                st.subheader("🔗 Source")
+                if answer["source"]:
+                    st.markdown(answer["source"])
+                else:
+                    st.markdown("_No source available_")
+
             except Exception as e:
                 st.error(f"An error occurred: {e}")
